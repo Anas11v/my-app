@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/Anas11v/my-app#readme",
   "dependencies": {
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "systeminformation": "^5.30.5"
   }
 }
