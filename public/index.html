@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .circle-gauge {
+            width: 150px; /* [cite: 31] */
+            height: 150px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column; /* [cite: 32] */
+            align-items: center;
+            justify-content: center; /*  */
+            border: 8px solid #1e293b;
+            margin: 0 auto;
+            transition: all 0.5s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-4xl font-black mb-12 text-center text-blue-500">SYSTEM MONITOR</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-12"> <div class="space-y-6">
+                <div id="cpu-ring" class="circle-gauge border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]">
+                    <span class="text-3xl font-bold" id="cpu-val">0%</span>
+                    <span class="text-xs uppercase tracking-widest text-blue-400">CPU</span> </div>
+                <div class="bg-slate-900 p-4 rounded-xl h-48">
+                    <canvas id="cpuChart"></canvas>
+                </div>
+            </div>
+
+            <div class="space-y-6"> <div id="temp-ring" class="circle-gauge border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.5)]">
+                    <span class="text-3xl font-bold" id="temp-val">0°C</span>
+                    <span class="text-xs uppercase tracking-widest text-orange-400">TEMP</span>
+                </div>
+                <div class="bg-slate-900 p-4 rounded-xl h-48"> <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div id="ram-ring" class="circle-gauge border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)]"> <span class="text-3xl font-bold" id="ram-val">0GB</span>
+                    <span class="text-xs uppercase tracking-widest text-emerald-400">RAM</span>
+                </div>
+                <div class="bg-slate-900 p-4 rounded-xl h-48">
+                    <canvas id="ramChart"></canvas> </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function createChart(id, color) {
+            return new Chart(document.getElementById(id), {
+                type: 'line', // [cite: 40]
+                data: { labels: [], datasets: [{ data: [], borderColor: color, tension: 0.4, fill: true, backgroundColor: color + '11', pointRadius: 0 }] },
+                options: { 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: false }, // [cite: 41]
+                    scales: { x: { display: false }, y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } } }
+                }
+            });
+        }
+
+        const charts = {
+            cpu: createChart('cpuChart', '#3b82f6'), // [cite: 42]
+            temp: createChart('tempChart', '#f97316'),
+            ram: createChart('ramChart', '#10b981')
+        };
+
+        const source = new EventSource('/system/stream');
+        source.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // Update Circles
+            document.getElementById('cpu-val').innerText = data.cpu + '%'; // [cite: 43]
+            document.getElementById('temp-val').innerText = data.temp + '°C';
+            document.getElementById('ram-val').innerText = data.ram + 'GB';
+
+            // Update History
+            const time = new Date().toLocaleTimeString();
+            Object.keys(charts).forEach(key => {
+                const chart = charts[key]; // [cite: 44]
+                chart.data.labels.push(time);
+                chart.data.datasets[0].data.push(data[key]);
+                if(chart.data.labels.length > 20) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift(); // [cite: 45]
+                }
+                chart.update('none');
+            });
+        };
+    </script>
+</body>
+</html>

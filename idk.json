@@ -1,0 +1,41 @@
+[
+  {
+    "order": 1,
+    "title": "Project Structure",
+    "description": "Organize your folder like this to ensure the server can serve the frontend files correctly.",
+    "files": [
+      "server-monitor/",
+      "├── public/",
+      "│   └── index.html",
+      "├── server.js",
+      "└── package.json"
+    ]
+  },
+  {
+    "order": 2,
+    "title": "package.json",
+    "description": "Create this file to manage dependencies and the start command.",
+    "content": "{\n  \"name\": \"server-monitor\",\n  \"version\": \"1.0.0\",\n  \"main\": \"server.js\",\n  \"dependencies\": {\n    \"express\": \"^4.18.2\",\n    \"systeminformation\": \"^5.21.22\"\n  },\n  \"scripts\": {\n    \"start\": \"node server.js\"\n  }\n}"
+  },
+  {
+    "order": 3,
+    "title": "server.js (The Backend)",
+    "description": "Paste this into server.js. This includes your logic plus the code to serve the frontend.",
+    "content": "const express = require('express');\nconst si = require('systeminformation');\nconst path = require('path');\nconst app = express();\n\n// Serve static files from the 'public' folder\napp.use(express.static(path.join(__dirname, 'public')));\n\napp.get('/system/static', async (req, res) => {\n    try {\n        const [cpu, os, mem] = await Promise.all([si.cpu(), si.osInfo(), si.mem()]);\n        res.json({ \n            cpuBrand: cpu.brand,\n            osDistro: os.distro,\n            totalRamGb: Math.round(mem.total / 1024 / 1024 / 1024)\n        });\n    } catch (err) {\n        res.status(500).send(err.message);\n    }\n});\n\napp.get('/system/stream', async (req, res) => {\n    res.writeHead(200, {\n        'Content-Type': 'text/event-stream',\n        'Cache-Control': 'no-cache',\n        'Connection': 'keep-alive',\n    });\n\n    const intervalId = setInterval(async () => {\n        try {\n            const [load, temp, mem] = await Promise.all([\n                si.currentLoad(),\n                si.cpuTemperature(),\n                si.mem()\n            ]);\n            const cleanData = {\n                cpu: Math.round(load.currentLoad),\n                temp: Math.round(temp.main) || -1,\n                ram: Math.round(mem.active / 1024 / 1024 / 1024),\n                timestamp: Date.now()\n            };\n            res.write(`data: ${JSON.stringify(cleanData)}\\n\\n`);\n        } catch (error) {\n            clearInterval(intervalId);\n            res.end(); \n        }\n    }, 2000);\n\n    req.on('close', () => clearInterval(intervalId));\n});\n\nconst PORT = process.env.PORT || 3000;\napp.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));"
+  },
+  {
+    "order": 4,
+    "title": "public/index.html (The Frontend)",
+    "description": "Paste this into public/index.html. It uses Tailwind CSS and Chart.js for the UI.",
+    "content": "<!DOCTYPE html><html><head><title>Monitor</title><script src=\"https://cdn.tailwindcss.com\"></script><script src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script></head><body class=\"bg-gray-900 text-white p-8\"><div class=\"max-w-4xl mx-auto\"><h1 class=\"text-2xl font-bold mb-6\">Server Performance</h1><div class=\"grid grid-cols-3 gap-4 mb-8\"><div class=\"bg-gray-800 p-4 rounded\">CPU: <span id=\"live-cpu\">-</span></div><div class=\"bg-gray-800 p-4 rounded\">Temp: <span id=\"live-temp\">-</span></div><div class=\"bg-gray-800 p-4 rounded\">RAM: <span id=\"live-ram\">-</span></div></div><div class=\"bg-gray-800 p-4 rounded-lg h-64\"><canvas id=\"chart\"></canvas></div></div><script>const ctx = document.getElementById('chart').getContext('2d');const chart = new Chart(ctx, {type:'line', data:{labels:[], datasets:[{label:'CPU %', borderColor:'#3b82f6', data:[]},{label:'RAM GB', borderColor:'#10b981', data:[]}]}, options:{maintainAspectRatio:false}});const ev = new EventSource('/system/stream');ev.onmessage = (e) => {const d = JSON.parse(e.data);document.getElementById('live-cpu').innerText=d.cpu+'%';document.getElementById('live-temp').innerText=d.temp+'°C';document.getElementById('live-ram').innerText=d.ram+'GB';chart.data.labels.push(new Date().toLocaleTimeString());chart.data.datasets[0].data.push(d.cpu);chart.data.datasets[1].data.push(d.ram);if(chart.data.labels.length>20){chart.data.labels.shift();chart.data.datasets[0].data.shift();chart.data.datasets[1].data.shift();}chart.update();};</script></body></html>"
+  },
+  {
+    "order": 5,
+    "title": "Deployment Commands",
+    "description": "Run these commands in your terminal to start the app.",
+    "commands": [
+      "npm install",
+      "node server.js"
+    ]
+  }
+]
